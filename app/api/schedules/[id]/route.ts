@@ -1,0 +1,3 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/database";
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) { const { id } = await params; const body = await request.json().catch(() => null) as { active?: boolean } | null; if (typeof body?.active !== "boolean") return NextResponse.json({ error: "Invalid schedule state." }, { status: 400 }); try { return NextResponse.json(await db.scheduledResearch.update({ where: { id }, data: { active: body.active } })); } catch { return NextResponse.json({ error: "Could not update schedule." }, { status: 503 }); } }

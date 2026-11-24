@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  WAITING_FOR_APPROVAL
+  COMPLETED
+  FAILED
+}
+
+enum AgentStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum AgentType {
+  RESEARCH
+  ANALYSIS
+  FACT_CHECK
+  WRITING
+  REVIEW
+}
+
+model User {
+  id        String @id @default(cuid())
+  email     String @unique
+  name      String?
+  jobs      ResearchJob[]
+  schedules ScheduledResearch[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ResearchJob {
+  id             String @id @default(cuid())
+  userId         String?
+  user           User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  topic          String
+  instructions   String?
+  depth          String @default("standard")
+  status         JobStatus @default(PENDING)
+  currentStage   String?
+  error          String?
+  inngestRunId   String? @unique
+  approvedAt     DateTime?
+  executions     AgentExecution[]
+  report         ResearchReport?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  completedAt    DateTime?
+  @@index([status, createdAt])
+}
+
+model AgentExecution {
+  id          String @id @default(cuid())
+  jobId       String
+  job         ResearchJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  agent       AgentType
+  status      AgentStatus @default(PENDING)
+  progress    Int @default(0)
+  startedAt   DateTime?
+  completedAt DateTime?
+  output      Json?
+  error       String?
+  updatedAt   DateTime @updatedAt
+  @@unique([jobId, agent])
+  @@index([jobId, status])
+}
+
+model ResearchReport {
+  id             String @id @default(cuid())
+  jobId          String @unique
+  job            ResearchJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  title          String
+  executiveSummary String
+  findings       Json
+  analysis       Json
+  factCheck      Json
+  conclusion     String
+  markdown       String @db.Text
+  sources        ResearchSource[]
+  createdAt      DateTime @default(now())
+}
+
+model ResearchSource {
+  id          String @id @default(cuid())
+  reportId    String
+  report      ResearchReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  title       String
+  url         String
+  snippet     String? @db.Text
+  domain      String?
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  @@unique([reportId, url])
+}
+
+model ScheduledResearch {
+  id           String @id @default(cuid())
+  userId       String?
+  user         User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  topic        String
+  instructions String?
+  depth        String @default("standard")
+  cron         String
+  timezone     String @default("UTC")
+  active       Boolean @default(true)
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([active, nextRunAt])
+}
